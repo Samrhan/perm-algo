@@ -44,8 +44,6 @@ class Agenda:
                 self._agenda.append(Calendar(date))
 
         user = []
-        for people in self._people:
-            people.n_day = sum(day.p_id == people.id for day in self._dispo)
 
         for i in self._agenda:
             for j in self._dispo:
@@ -72,8 +70,7 @@ class Agenda:
                 if i.attribution == j.id:
                     i.people = j
 
-    def date_to_index(self):
-        return 0
+        print(self._agenda)
 
 
 class Date:
@@ -143,7 +140,7 @@ class User:
         self._dis_day = __people[4]
         self._special = __people[5]
         self._p_indis = __people[6]
-        self._n_day = 0
+        self._n_day = __people[8]
 
     @property
     def id(self):
@@ -169,16 +166,8 @@ class User:
     def p_indis(self):
         return self._p_indis
 
-    @property
-    def n_day(self):
-        return self._n_day
-
-    @n_day.setter
-    def n_day(self, __n):
-        self._n_day = __n
-
     def __repr__(self):
-        return f'{self._name}, jour dispo : {self._n_day}'
+        return f'id: {self._id} nom : {self._name}, jour dispo : {self._n_day}'
 
 
 connection_pool = mysql.connector.pooling.MySQLConnectionPool(pool_name="poooll",
