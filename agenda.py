@@ -6,27 +6,34 @@ WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 
 
 class Agenda:
-    def __init__(self, __people, __dispo, __indispo, __periode):
+    def __init__(self, __people, __dispo, __indispo, __periode, __cursor):
         self._dispo = []
         self._indispo = []
         self._start = __periode[0][0]
         self._end = __periode[0][1]
         self._vacation = __periode[0][2]
         self._people = []
+        self._cursor = __cursor
+
+        self.clear_db()
+
         if self._vacation:
             self._vacation_start = __periode[0][3]
             self._vacation_end = __periode[0][4]
         for i in __dispo:
             self._dispo.append(Date(i))
 
-        for i in __indispo:
-            self._indispo.append(Date(i))
-
         for i in __people:
             self._people.append(User(i))
 
+        for i in __indispo:
+            for j in self._people:
+                if i[0] == j.id:
+                    j.indispos.append(i[1])
+
         self._agenda = []
         self.calc()
+        self.insert_planning()
 
     def calc(self):
         delta = self._end - self._start
@@ -45,8 +52,8 @@ class Agenda:
 
         user = []
 
-        for i in self._agenda:
-            for j in self._dispo:
+        for j in self._dispo:
+            for i in self._agenda:
                 if i.date == j.date and i.attribution is None and j.p_id not in user and i.date:
                     i.attribution = j.p_id
                     i.etape = 1
@@ -58,19 +65,50 @@ class Agenda:
             for people in self._people:
                 if weekday == people.dis_day - 1:
                     self._dispo.append(Date((people.id, date)))
+                if weekday == people.indis_day + 1:
+
+                    people.indispos.append(date)
+        for i in self._people:
+            if i.id not in user:
+                print(i)
         for i in self._agenda:
             for j in self._dispo:
                 if i.date == j.date and i.attribution is None and j.p_id not in user:
                     i.attribution = j.p_id
                     i.etape = 2
                     user.append(j.p_id)
+        for i in self._agenda:
+            if i.attribution is None:
+                for j in self._people:
+                    if j.id not in user and i.date not in j.indispos:
+                        i.attribution = j.id
+                        i.etape = 3
+                        user.append(j.id)
+                        break
+
 
         for i in self._agenda:
             for j in self._people:
                 if i.attribution == j.id:
                     i.people = j
 
-        print(self._agenda)
+        for i in self._people:
+            if i.id not in user:
+                print()
+
+        for i in self._agenda:
+            print(i, end='')
+
+    def clear_db(self):
+        self._cursor.execute('DELETE FROM planning WHERE periode_id = 1')
+
+    def insert_planning(self):
+        insert = []
+        for i in self._agenda:
+            if i.attribution:
+                insert.append((1, 1, i.date, i.attribution))
+
+        self._cursor.executemany('INSERT INTO planning VALUES (%s, %s, %s, %s)', insert)
 
 
 class Date:
@@ -129,7 +167,7 @@ class Calendar:
         self._etape = etape
 
     def __repr__(self):
-        return f'{self._date.isoformat()} : {self._people} (attribué à l\'étape {self._etape})\n'
+        return f'{str(self._date.isoformat())[0:10]} : {self._people} (attribué à l\'étape {self._etape})\n'
 
 
 class User:
@@ -141,6 +179,7 @@ class User:
         self._special = __people[5]
         self._p_indis = __people[6]
         self._n_day = __people[8]
+        self._indispo = []
 
     @property
     def id(self):
@@ -166,8 +205,12 @@ class User:
     def p_indis(self):
         return self._p_indis
 
+    @property
+    def indispos(self):
+        return self._indispo
+
     def __repr__(self):
-        return f'id: {self._id} nom : {self._name}, jour dispo : {self._n_day}'
+        return f'nom : {self._name}, jour dispo : {self._n_day}'
 
 
 connection_pool = mysql.connector.pooling.MySQLConnectionPool(pool_name="poooll",
@@ -201,4 +244,5 @@ if connection_object.is_connected():
                     periode = cursor.fetchall()
     except Exception as e:
         pass
-    Agenda(people, dispo, indispo, periode)
+    Agenda(people, dispo, indispo, periode, cursor)
+    connection_object.commit()
