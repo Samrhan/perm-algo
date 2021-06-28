@@ -6,7 +6,7 @@ WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 
 
 class Agenda:
-    def __init__(self, __people, __dispo, __indispo, __periode, __cursor):
+    def __init__(self, __people, __dispo, __indispo, __periode, __feries, __cursor):
         self._dispo = []
         self._indispo = []
         self._start = __periode[0][0]
@@ -24,7 +24,8 @@ class Agenda:
             self._dispo.append(Date(i))
 
         for i in __people:
-            self._people.append(User(i))
+            if i[0] != 69:
+                self._people.append(User(i))
 
         for i in __indispo:
             for j in self._people:
@@ -32,6 +33,9 @@ class Agenda:
                     j.indispos.append(i[1])
 
         self._agenda = []
+        self._feries = []
+        for i in __feries:
+            self._feries.append(i[0])
         self.calc()
         self.insert_planning()
 
@@ -47,7 +51,7 @@ class Agenda:
         for i in range(delta.days + 1):
             date = self._start + timedelta(days=i)
             weekday = date.weekday()
-            if date not in vacation and weekday != 5 and weekday != 6:
+            if date not in vacation and weekday != 5 and weekday != 6 and date not in self._feries:
                 self._agenda.append(Calendar(date))
 
         user = []
@@ -66,7 +70,6 @@ class Agenda:
                 if weekday == people.dis_day - 1:
                     self._dispo.append(Date((people.id, date)))
                 if weekday == people.indis_day + 1:
-
                     people.indispos.append(date)
         for i in self._people:
             if i.id not in user:
@@ -86,7 +89,6 @@ class Agenda:
                         user.append(j.id)
                         break
 
-
         for i in self._agenda:
             for j in self._people:
                 if i.attribution == j.id:
@@ -100,13 +102,13 @@ class Agenda:
             print(i, end='')
 
     def clear_db(self):
-        self._cursor.execute('DELETE FROM planning WHERE periode_id = 1')
+        self._cursor.execute('DELETE FROM planning WHERE periode_id = 2')
 
     def insert_planning(self):
         insert = []
         for i in self._agenda:
             if i.attribution:
-                insert.append((1, 1, i.date, i.attribution))
+                insert.append((1, 2, i.date, i.attribution))
 
         self._cursor.executemany('INSERT INTO planning VALUES (%s, %s, %s, %s)', insert)
 
@@ -226,7 +228,7 @@ connection_object = connection_pool.get_connection()
 
 if connection_object.is_connected():
     cursor = connection_object.cursor(buffered=True)
-    results = cursor.execute('CALL fetchPeople(1, 1)', multi=True)
+    results = cursor.execute('CALL fetchPeople(1, 2)', multi=True)
     people = []
     dispo = []
     indispo = []
@@ -244,5 +246,7 @@ if connection_object.is_connected():
                     periode = cursor.fetchall()
     except Exception as e:
         pass
-    Agenda(people, dispo, indispo, periode, cursor)
+    results = cursor.execute('SELECT date FROM feries')
+    feries = cursor.fetchall()
+    Agenda(people, dispo, indispo, periode, feries, cursor)
     connection_object.commit()
